@@ -1,0 +1,6 @@
+{
+  "name": "JV Tech CRM Portal",
+  "description": "Customized CRM and Candidate Tracking Portal for JV Tech Center. Features an updated 8-stage requirement lifecycle pipeline, interview schedules with country & mode details, AI-powered registration via live camera or resume uploads, and advanced document downloads in the Document Hub.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

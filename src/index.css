@@ -1,0 +1,60 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Custom branding colors matching JV TECH Logo & Letterhead */
+  --color-brand-50: #fff9f2;
+  --color-brand-100: #ffecd6;
+  --color-brand-200: #fed7aa;
+  --color-brand-500: #f58220; /* Vibrant Logo Orange */
+  --color-brand-600: #e06c11;
+  --color-brand-700: #c2410c;
+  --color-brand-dark: #0f0f11; /* Deep Logo Charcoal Black */
+  --color-brand-darklight: #1f1f23;
+  --color-brand-red: #d32f2f; /* Logo Red Accent */
+
+  /* High-Definition Contrast Overrides for Slate Colors to enhance legibility */
+  --color-slate-300: #8da2bb; /* Standard is cbd5e1 (too light) - updated to clear, sharp light slate */
+  --color-slate-400: #64748b; /* Standard is 94a3b8 - upgraded to slate-500 level for extremely crisp captions */
+  --color-slate-500: #475569; /* Standard is 64748b - upgraded to slate-600 level for high legibility */
+  --color-slate-600: #334155; /* Standard is 475569 - upgraded to slate-700 level for robust secondary body text */
+  --color-slate-700: #1e293b; /* Standard is 334155 - upgraded to slate-800 level for deep clear readable text */
+  --color-slate-800: #0f172a; /* Standard is 1e293b - upgraded to slate-900 level for maximum text definition */
+  --color-slate-900: #090d16; /* Standard is 0f172a - upgraded to almost absolute black for extra sharp headers */
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-weight: 450; /* Slightly thicker than 400 to make text full and bold in high resolution */
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+/* Custom scrollbars for clean UI look */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
