@@ -1,0 +1,82 @@
+{
+  "entities": {
+    "Candidate": {
+      "title": "Candidate",
+      "description": "Represents a recruitment portal candidate tracking details across multiple workflow stages",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "passportNumber": { "type": "string" },
+        "phone": { "type": "string" },
+        "trade": { "type": "string" },
+        "country": { "type": "string" },
+        "createdDate": { "type": "string" },
+        "stage": { "type": "number" },
+        "isArchived": { "type": "boolean" }
+      },
+      "required": ["id", "name", "passportNumber", "phone", "trade", "country", "createdDate", "stage", "isArchived"]
+    },
+    "StaffUser": {
+      "title": "StaffUser",
+      "description": "Represents a staff member or administrator account",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "username": { "type": "string" },
+        "role": { "type": "string", "enum": ["Admin", "Staff"] },
+        "lastActive": { "type": "string" },
+        "status": { "type": "string", "enum": ["Active", "Suspended"] }
+      },
+      "required": ["id", "name", "username", "role", "lastActive", "status"]
+    },
+    "SystemSettings": {
+      "title": "SystemSettings",
+      "description": "Represents custom configurations for the CRM Portal",
+      "type": "object",
+      "properties": {
+        "portalName": { "type": "string" },
+        "portalSubtitle": { "type": "string" },
+        "locationDetails": { "type": "string" },
+        "supportContact": { "type": "string" },
+        "isRegistrationOpen": { "type": "boolean" },
+        "customTrades": { "type": "array" },
+        "customCountries": { "type": "array" }
+      },
+      "required": ["portalName", "portalSubtitle", "locationDetails", "supportContact", "isRegistrationOpen"]
+    },
+    "ScheduledInterview": {
+      "title": "ScheduledInterview",
+      "description": "Represents an upcoming company recruitment interview",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "companyName": { "type": "string" },
+        "trade": { "type": "string" },
+        "mode": { "type": "string" },
+        "venue": { "type": "string" }
+      },
+      "required": ["id", "date", "companyName", "trade", "mode", "venue"]
+    }
+  },
+  "firestore": {
+    "candidates": {
+      "schema": "Candidate",
+      "description": "Collection of recruitment candidates"
+    },
+    "settings": {
+      "schema": "SystemSettings",
+      "description": "Collection containing portal global configuration settings document"
+    },
+    "users": {
+      "schema": "StaffUser",
+      "description": "Collection of staff and administrator records"
+    },
+    "interviews": {
+      "schema": "ScheduledInterview",
+      "description": "Collection of scheduled client interviews"
+    }
+  }
+}

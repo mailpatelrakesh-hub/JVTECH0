@@ -1,4 +1,5 @@
 import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
 import { 
   getFirestore, 
   collection, 
@@ -26,31 +27,84 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize Firestore with specific Database ID
 export const db = getFirestore(app, "ai-studio-jvtechcrmportal-180ee165-d359-49f9-b5c8-2b3e9aa4ece3");
+export const auth = getAuth(app);
+
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  }
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid || null,
+      email: auth.currentUser?.email || null,
+      emailVerified: auth.currentUser?.emailVerified || null,
+      isAnonymous: auth.currentUser?.isAnonymous || null,
+      tenantId: auth.currentUser?.tenantId || null,
+      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 // Helper: Save all candidates to Firestore in a batch (or individual calls)
 export async function saveCandidateToCloud(candidate: Candidate) {
+  const path = `candidates/${candidate.id}`;
   try {
     const docRef = doc(db, "candidates", candidate.id);
     await setDoc(docRef, candidate);
     console.log(`Cloud synced: Candidate ${candidate.id}`);
   } catch (error) {
     console.error("Failed to sync candidate to cloud:", error);
+    handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
 
 // Helper: Delete candidate from Firestore
 export async function deleteCandidateFromCloud(id: string) {
+  const path = `candidates/${id}`;
   try {
     const docRef = doc(db, "candidates", id);
     await deleteDoc(docRef);
     console.log(`Cloud deleted: Candidate ${id}`);
   } catch (error) {
     console.error("Failed to delete candidate from cloud:", error);
+    handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
 
 // Helper: Load all candidates from Firestore
 export async function loadCandidatesFromCloud(): Promise<Candidate[] | null> {
+  const path = "candidates";
   try {
     const colRef = collection(db, "candidates");
     const snapshot = await getDocs(colRef);
@@ -61,23 +115,26 @@ export async function loadCandidatesFromCloud(): Promise<Candidate[] | null> {
     return list.length > 0 ? list : null;
   } catch (error) {
     console.error("Failed to load candidates from cloud:", error);
-    return null;
+    handleFirestoreError(error, OperationType.GET, path);
   }
 }
 
 // Helper: Save System Settings to Firestore
 export async function saveSettingsToCloud(settings: SystemSettings) {
+  const path = "settings/systemSettings";
   try {
     const docRef = doc(db, "settings", "systemSettings");
     await setDoc(docRef, settings);
     console.log("Cloud synced: System Settings");
   } catch (error) {
     console.error("Failed to sync settings to cloud:", error);
+    handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
 
 // Helper: Load System Settings from Firestore
 export async function loadSettingsFromCloud(): Promise<SystemSettings | null> {
+  const path = "settings/systemSettings";
   try {
     const docRef = doc(db, "settings", "systemSettings");
     const snapshot = await getDoc(docRef);
@@ -87,23 +144,26 @@ export async function loadSettingsFromCloud(): Promise<SystemSettings | null> {
     return null;
   } catch (error) {
     console.error("Failed to load settings from cloud:", error);
-    return null;
+    handleFirestoreError(error, OperationType.GET, path);
   }
 }
 
 // Helper: Save all staff users
 export async function saveUserToCloud(user: StaffUser) {
+  const path = `users/${user.id}`;
   try {
     const docRef = doc(db, "users", user.id);
     await setDoc(docRef, user);
     console.log(`Cloud synced: User ${user.id}`);
   } catch (error) {
     console.error("Failed to sync user to cloud:", error);
+    handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
 
 // Helper: Load all staff users
 export async function loadUsersFromCloud(): Promise<StaffUser[] | null> {
+  const path = "users";
   try {
     const colRef = collection(db, "users");
     const snapshot = await getDocs(colRef);
@@ -114,34 +174,39 @@ export async function loadUsersFromCloud(): Promise<StaffUser[] | null> {
     return list.length > 0 ? list : null;
   } catch (error) {
     console.error("Failed to load users from cloud:", error);
-    return null;
+    handleFirestoreError(error, OperationType.GET, path);
   }
 }
 
 // Helper: Save scheduled interview to Firestore
 export async function saveInterviewToCloud(interview: ScheduledInterview) {
+  const path = `interviews/${interview.id}`;
   try {
     const docRef = doc(db, "interviews", interview.id);
     await setDoc(docRef, interview);
     console.log(`Cloud synced: Interview ${interview.id}`);
   } catch (error) {
     console.error("Failed to sync interview to cloud:", error);
+    handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
 
 // Helper: Delete scheduled interview from Firestore
 export async function deleteInterviewFromCloud(id: string) {
+  const path = `interviews/${id}`;
   try {
     const docRef = doc(db, "interviews", id);
     await deleteDoc(docRef);
     console.log(`Cloud deleted: Interview ${id}`);
   } catch (error) {
     console.error("Failed to delete interview from cloud:", error);
+    handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
 
 // Helper: Load all scheduled interviews
 export async function loadInterviewsFromCloud(): Promise<ScheduledInterview[] | null> {
+  const path = "interviews";
   try {
     const colRef = collection(db, "interviews");
     const snapshot = await getDocs(colRef);
@@ -152,7 +217,7 @@ export async function loadInterviewsFromCloud(): Promise<ScheduledInterview[] | 
     return list.length > 0 ? list : null;
   } catch (error) {
     console.error("Failed to load interviews from cloud:", error);
-    return null;
+    handleFirestoreError(error, OperationType.GET, path);
   }
 }
 
