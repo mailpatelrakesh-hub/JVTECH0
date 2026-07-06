@@ -254,3 +254,17 @@ export async function seedCloudFromLocal(
     console.error("Failed to seed cloud database:", error);
   }
 }
+
+// Helper: Delete staff user from Firestore
+export async function deleteUserFromCloud(id: string) {
+  const path = `users/${id}`;
+  try {
+    const docRef = doc(db, "users", id);
+    await deleteDoc(docRef);
+    console.log(`Cloud deleted: User ${id}`);
+  } catch (error) {
+    console.error("Failed to delete user from cloud:", error);
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+

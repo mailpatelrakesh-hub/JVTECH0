@@ -23,8 +23,12 @@ import {
   saveInterviewToCloud, 
   deleteInterviewFromCloud, 
   loadInterviewsFromCloud, 
-  seedCloudFromLocal 
+  seedCloudFromLocal,
+  deleteUserFromCloud,
+  db
 } from './firebase';
+
+import { onSnapshot, collection, doc } from 'firebase/firestore';
 
 import { 
   Users, UserPlus, Search, Shield, Filter, RotateCcw, 
@@ -123,13 +127,22 @@ export default function App() {
     return defaultUsers;
   });
 
-  const handleUpdateSystemUsers = (newUsers: StaffUser[]) => {
+  const handleUpdateSystemUsers = async (newUsers: StaffUser[]) => {
+    // Find if any user was deleted
+    const deletedUsers = systemUsers.filter(prev => !newUsers.some(curr => curr.id === prev.id));
+
     setSystemUsers(newUsers);
     localStorage.setItem('JV_TECH_CRM_SYSTEM_USERS', JSON.stringify(newUsers));
-    // Cloud sync each user
-    newUsers.forEach(user => {
-      saveUserToCloud(user);
-    });
+
+    // Delete removed users from cloud
+    for (const user of deletedUsers) {
+      await deleteUserFromCloud(user.id);
+    }
+
+    // Cloud sync each remaining user
+    for (const user of newUsers) {
+      await saveUserToCloud(user);
+    }
   };
 
   // Authentication state
@@ -170,13 +183,22 @@ export default function App() {
   });
   const [loading, setLoading] = useState(true);
 
-  const handleUpdateScheduledInterviews = (newInterviews: ScheduledInterview[]) => {
+  const handleUpdateScheduledInterviews = async (newInterviews: ScheduledInterview[]) => {
+    // Find if any interview was deleted
+    const deletedInterviews = scheduledInterviews.filter(prev => !newInterviews.some(curr => curr.id === prev.id));
+
     setScheduledInterviews(newInterviews);
     localStorage.setItem('JV_TECH_CRM_SCHEDULED_INTERVIEWS', JSON.stringify(newInterviews));
-    // Cloud sync each interview
-    newInterviews.forEach(item => {
-      saveInterviewToCloud(item);
-    });
+
+    // Delete removed interviews from cloud
+    for (const item of deletedInterviews) {
+      await deleteInterviewFromCloud(item.id);
+    }
+
+    // Cloud sync each remaining/new interview
+    for (const item of newInterviews) {
+      await saveInterviewToCloud(item);
+    }
   };
 
 
@@ -198,7 +220,7 @@ export default function App() {
   // Date selection for bulk documents download
   const [bulkDownloadDate, setBulkDownloadDate] = useState<string>('');
 
-  // Initialize candidates database and fetch cloud Firestore updates
+  // Initialize candidates database and fetch cloud Firestore updates with real-time sync
   useEffect(() => {
     // 1. Instantly load local cache for offline-first responsiveness
     const savedCandidates = localStorage.getItem('JV_TECH_CRM_CANDIDATES');
@@ -216,70 +238,115 @@ export default function App() {
     }
     setLoading(false);
 
-    // 2. Fetch and sync from Firebase Cloud Firestore in the background
+    // 2. Setup real-time listeners for instant cross-device updates
+    let isSubscribed = true;
+    let unsubCandidates: (() => void) | undefined;
+    let unsubSettings: (() => void) | undefined;
+    let unsubUsers: (() => void) | undefined;
+    let unsubInterviews: (() => void) | undefined;
+
+    const setupListeners = () => {
+      if (!isSubscribed) return;
+
+      console.log("Setting up real-time Firestore synchronization listeners...");
+
+      // A. Candidates real-time listener
+      unsubCandidates = onSnapshot(collection(db, "candidates"), (snapshot) => {
+        const list: Candidate[] = [];
+        snapshot.forEach((doc) => {
+          list.push(doc.data() as Candidate);
+        });
+        console.log(`Real-time Candidates Update: Synced ${list.length} candidates.`);
+        setCandidates(list);
+        localStorage.setItem('JV_TECH_CRM_CANDIDATES', JSON.stringify(list));
+      }, (error) => {
+        console.error("Candidates real-time listener failed:", error);
+      });
+
+      // B. System Settings real-time listener
+      unsubSettings = onSnapshot(doc(db, "settings", "systemSettings"), (docSnap) => {
+        if (docSnap.exists()) {
+          const settings = docSnap.data() as SystemSettings;
+          console.log("Real-time System Settings Update received.");
+          setSystemSettings(settings);
+          localStorage.setItem('JV_TECH_CRM_SYSTEM_SETTINGS', JSON.stringify(settings));
+        }
+      }, (error) => {
+        console.error("Settings real-time listener failed:", error);
+      });
+
+      // C. Staff Users real-time listener
+      unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
+        const list: StaffUser[] = [];
+        snapshot.forEach((doc) => {
+          list.push(doc.data() as StaffUser);
+        });
+        if (list.length > 0) {
+          console.log(`Real-time Staff Users Update: Synced ${list.length} users.`);
+          setSystemUsers(list);
+          localStorage.setItem('JV_TECH_CRM_SYSTEM_USERS', JSON.stringify(list));
+        }
+      }, (error) => {
+        console.error("Users real-time listener failed:", error);
+      });
+
+      // D. Scheduled Interviews real-time listener
+      unsubInterviews = onSnapshot(collection(db, "interviews"), (snapshot) => {
+        const list: ScheduledInterview[] = [];
+        snapshot.forEach((doc) => {
+          list.push(doc.data() as ScheduledInterview);
+        });
+        console.log(`Real-time Scheduled Interviews Update: Synced ${list.length} interviews.`);
+        setScheduledInterviews(list);
+        localStorage.setItem('JV_TECH_CRM_SCHEDULED_INTERVIEWS', JSON.stringify(list));
+      }, (error) => {
+        console.error("Interviews real-time listener failed:", error);
+      });
+    };
+
     const syncCloudData = async () => {
       try {
-        console.log("Starting background Firestore database synchronization...");
+        console.log("Checking if Firestore database needs seeding...");
+        const cloudSettings = await loadSettingsFromCloud();
 
-        // A. Candidates Sync
-        const cloudCandidates = await loadCandidatesFromCloud();
-        if (cloudCandidates && cloudCandidates.length > 0) {
-          console.log(`Synced ${cloudCandidates.length} candidates from cloud.`);
-          setCandidates(cloudCandidates);
-          localStorage.setItem('JV_TECH_CRM_CANDIDATES', JSON.stringify(cloudCandidates));
-        } else {
-          // Cloud is empty - seed it with whatever is current local
-          console.log("Cloud candidates empty. Seeding local candidates...");
-          const toSeed = currentLocalCandidates.length > 0 ? currentLocalCandidates : INITIAL_CANDIDATES;
-          for (const cand of toSeed) {
+        if (!cloudSettings) {
+          // BRAND NEW DATABASE - Seed everything to cloud first
+          console.log("Cloud settings empty. Seeding default initial state to cloud...");
+          await saveSettingsToCloud(systemSettings);
+
+          const candidatesToSeed = currentLocalCandidates.length > 0 ? currentLocalCandidates : INITIAL_CANDIDATES;
+          for (const cand of candidatesToSeed) {
             await saveCandidateToCloud(cand);
           }
-        }
 
-        // B. System Settings Sync
-        const cloudSettings = await loadSettingsFromCloud();
-        if (cloudSettings) {
-          console.log("Synced system settings from cloud.");
-          setSystemSettings(cloudSettings);
-          localStorage.setItem('JV_TECH_CRM_SYSTEM_SETTINGS', JSON.stringify(cloudSettings));
-        } else {
-          console.log("Cloud settings empty. Seeding current settings...");
-          await saveSettingsToCloud(systemSettings);
-        }
-
-        // C. Staff Users Sync
-        const cloudUsers = await loadUsersFromCloud();
-        if (cloudUsers && cloudUsers.length > 0) {
-          console.log(`Synced ${cloudUsers.length} users from cloud.`);
-          setSystemUsers(cloudUsers);
-          localStorage.setItem('JV_TECH_CRM_SYSTEM_USERS', JSON.stringify(cloudUsers));
-        } else {
-          console.log("Cloud users empty. Seeding current users...");
           for (const u of systemUsers) {
             await saveUserToCloud(u);
           }
-        }
 
-        // D. Scheduled Interviews Sync
-        const cloudInterviews = await loadInterviewsFromCloud();
-        if (cloudInterviews && cloudInterviews.length > 0) {
-          console.log(`Synced ${cloudInterviews.length} interviews from cloud.`);
-          setScheduledInterviews(cloudInterviews);
-          localStorage.setItem('JV_TECH_CRM_SCHEDULED_INTERVIEWS', JSON.stringify(cloudInterviews));
-        } else {
-          console.log("Cloud interviews empty. Seeding current interviews...");
           for (const i of scheduledInterviews) {
             await saveInterviewToCloud(i);
           }
+          console.log("Cloud database seeding finished successfully.");
         }
 
-        console.log("Cloud database synchronization completed successfully!");
+        // Setup real-time listeners
+        setupListeners();
       } catch (err) {
-        console.error("Firestore sync failed:", err);
+        console.error("Firestore initialization/sync failed:", err);
+        // Fallback to setting up real-time listeners anyway
+        setupListeners();
       }
     };
 
     syncCloudData();
+
+    return () => {
+      isSubscribed = false;
+      if (unsubCandidates) unsubCandidates();
+      if (unsubSettings) unsubSettings();
+      if (unsubUsers) unsubUsers();
+      if (unsubInterviews) unsubInterviews();
+    };
   }, []);
 
   // Hash Routing and Session persistence listeners
@@ -545,13 +612,22 @@ export default function App() {
   };
 
   // Sync state helper
-  const saveToDB = (updatedList: Candidate[]) => {
+  const saveToDB = async (updatedList: Candidate[]) => {
+    // Find candidates that were deleted
+    const deletedCandidates = candidates.filter(prev => !updatedList.some(curr => curr.id === prev.id));
+
     setCandidates(updatedList);
     localStorage.setItem('JV_TECH_CRM_CANDIDATES', JSON.stringify(updatedList));
-    // Background cloud sync for candidates
-    updatedList.forEach(cand => {
-      saveCandidateToCloud(cand);
-    });
+
+    // Delete removed candidates from cloud
+    for (const cand of deletedCandidates) {
+      await deleteCandidateFromCloud(cand.id);
+    }
+
+    // Cloud sync each remaining/new candidate
+    for (const cand of updatedList) {
+      await saveCandidateToCloud(cand);
+    }
   };
 
   // Add/Edit Save Handler
@@ -571,12 +647,10 @@ export default function App() {
   };
 
   // Delete Handler (Admin & Staff)
-  const handleDeleteCandidate = (id: string, name: string) => {
+  const handleDeleteCandidate = async (id: string, name: string) => {
     if (window.confirm(`Kya aap sach me candidate "${name}" ka record delete karna chahte hain? Warning: Ye action permanently delete ho jayega!`)) {
       const updated = candidates.filter((c) => c.id !== id);
-      setCandidates(updated);
-      localStorage.setItem('JV_TECH_CRM_CANDIDATES', JSON.stringify(updated));
-      deleteCandidateFromCloud(id); // Cloud deletion
+      await saveToDB(updated);
       triggerToast(`Candidate "${name}" ka record safaltapoorvak delete ho gaya.`);
     }
   };
