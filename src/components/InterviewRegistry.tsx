@@ -460,31 +460,68 @@ export default function InterviewRegistry({
        throw new Error("Gemini API Key is empty or invalid. Please login as admin, go to Admin Panel -> Settings -> and save a valid Gemini API Key.");
     }
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(reqBody)
-    });
+    const modelsToTry = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-2.5-flash", "gemini-1.5-flash-8b", "gemini-1.5-pro"];
+    let lastError: any = null;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Gemini API returned ${response.status}: ${errorText}`);
-    }
+    for (const modelName of modelsToTry) {
+      try {
+        console.log(`Attempting client-side Gemini demand extraction with model: ${modelName}`);
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey.trim()}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(reqBody)
+        });
 
-    const resJson = await response.json();
-    const text = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) {
-      throw new Error("No response text returned from client-side Gemini API.");
-    }
+        if (!response.ok) {
+          const errorText = await response.text();
+          let isModelNotFoundError = response.status === 404 || errorText.toLowerCase().includes("not found") || errorText.toLowerCase().includes("unsupported");
+          
+          if (isModelNotFoundError) {
+            console.warn(`Model ${modelName} returned 404/not-found. Trying next model...`);
+            lastError = new Error(`Model ${modelName} not found: ${errorText}`);
+            continue;
+          } else {
+            throw new Error(`Gemini API returned ${response.status}: ${errorText}`);
+          }
+        }
 
-    try {
-      return JSON.parse(text);
-    } catch (e) {
-      const match = text.match(/```json\s*([\s\S]*?)\s*```/);
-      if (match && match[1]) {
-        return JSON.parse(match[1].trim());
+        const resJson = await response.json();
+        const text = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!text) {
+          throw new Error("No response text returned from client-side Gemini API.");
+        }
+
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          const match = text.match(/```json\s*([\s\S]*?)\s*```/);
+          if (match && match[1]) {
+            return JSON.parse(match[1].trim());
+          }
+          throw new Error("Gemini returned invalid JSON structure: " + text);
+        }
+      } catch (err: any) {
+        lastError = err;
+        console.error(`Error with model ${modelName} during client-side demand extraction:`, err);
+        // If it's a critical error (like auth or invalid key), don't loop, fail fast
+        const errStr = String(err.message || err).toLowerCase();
+        if (errStr.includes("api_key_invalid") || errStr.includes("key is invalid") || errStr.includes("400") || errStr.includes("403")) {
+          throw err;
+        }
       }
-      throw new Error("Gemini returned invalid JSON structure: " + text);
+    }
+
+    // If we finished the loop without a successful return, throw a helpful detailed message
+    const lastErrorMessage = lastError ? (lastError.message || String(lastError)) : "All models failed";
+    if (lastErrorMessage.includes("404") || lastErrorMessage.toLowerCase().includes("not found")) {
+      throw new Error(
+        `Gemini API returned 404: The model was not found or your API key does not support it.\n\n` +
+        `💡 SOLUTIONS:\n` +
+        `1. If your API key was created in Google Cloud Console (GCP), please go to GCP API Library and enable the "Generative Language API" for your project.\n` +
+        `2. Highly Recommended: Get a 100% FREE Gemini API Key from Google AI Studio (https://aistudio.google.com/) which works instantly out of the box!`
+      );
+    } else {
+      throw new Error(`Gemini client-side demand extraction failed: ${lastErrorMessage}`);
     }
   };
 
