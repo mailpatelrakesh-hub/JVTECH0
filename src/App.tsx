@@ -130,6 +130,11 @@ export default function App() {
   const handleUpdateSystemUsers = async (newUsers: StaffUser[]) => {
     // Find if any user was deleted
     const deletedUsers = systemUsers.filter(prev => !newUsers.some(curr => curr.id === prev.id));
+    // Find added or modified users
+    const updatedOrAddedUsers = newUsers.filter(curr => {
+      const prev = systemUsers.find(p => p.id === curr.id);
+      return !prev || JSON.stringify(prev) !== JSON.stringify(curr);
+    });
 
     setSystemUsers(newUsers);
     localStorage.setItem('JV_TECH_CRM_SYSTEM_USERS', JSON.stringify(newUsers));
@@ -139,8 +144,8 @@ export default function App() {
       await deleteUserFromCloud(user.id);
     }
 
-    // Cloud sync each remaining user
-    for (const user of newUsers) {
+    // Cloud sync only added/updated users
+    for (const user of updatedOrAddedUsers) {
       await saveUserToCloud(user);
     }
   };
@@ -186,6 +191,11 @@ export default function App() {
   const handleUpdateScheduledInterviews = async (newInterviews: ScheduledInterview[]) => {
     // Find if any interview was deleted
     const deletedInterviews = scheduledInterviews.filter(prev => !newInterviews.some(curr => curr.id === prev.id));
+    // Find added or modified interviews
+    const updatedOrAddedInterviews = newInterviews.filter(curr => {
+      const prev = scheduledInterviews.find(p => p.id === curr.id);
+      return !prev || JSON.stringify(prev) !== JSON.stringify(curr);
+    });
 
     setScheduledInterviews(newInterviews);
     localStorage.setItem('JV_TECH_CRM_SCHEDULED_INTERVIEWS', JSON.stringify(newInterviews));
@@ -195,8 +205,8 @@ export default function App() {
       await deleteInterviewFromCloud(item.id);
     }
 
-    // Cloud sync each remaining/new interview
-    for (const item of newInterviews) {
+    // Cloud sync only added/updated interviews
+    for (const item of updatedOrAddedInterviews) {
       await saveInterviewToCloud(item);
     }
   };
@@ -615,6 +625,11 @@ export default function App() {
   const saveToDB = async (updatedList: Candidate[]) => {
     // Find candidates that were deleted
     const deletedCandidates = candidates.filter(prev => !updatedList.some(curr => curr.id === prev.id));
+    // Find candidates that are new or actually modified
+    const updatedOrNewCandidates = updatedList.filter(curr => {
+      const prev = candidates.find(p => p.id === curr.id);
+      return !prev || JSON.stringify(prev) !== JSON.stringify(curr);
+    });
 
     setCandidates(updatedList);
     localStorage.setItem('JV_TECH_CRM_CANDIDATES', JSON.stringify(updatedList));
@@ -624,8 +639,8 @@ export default function App() {
       await deleteCandidateFromCloud(cand.id);
     }
 
-    // Cloud sync each remaining/new candidate
-    for (const cand of updatedList) {
+    // Cloud sync only added/modified candidates
+    for (const cand of updatedOrNewCandidates) {
       await saveCandidateToCloud(cand);
     }
   };
