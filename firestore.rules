@@ -14,22 +14,30 @@ service cloud.firestore {
 
     // Candidates collection rules
     match /candidates/{candidateId} {
-      allow read, write: if isValidId(candidateId);
+      allow get: if isValidId(candidateId);
+      allow list: if true;
+      allow write: if isValidId(candidateId);
     }
 
     // Settings collection rules
     match /settings/{settingsId} {
-      allow read, write: if isValidId(settingsId);
+      allow get: if isValidId(settingsId);
+      allow list: if true;
+      allow write: if isValidId(settingsId);
     }
 
     // Users collection rules
     match /users/{userId} {
-      allow read, write: if isValidId(userId);
+      allow get: if isValidId(userId);
+      allow list: if true;
+      allow write: if isValidId(userId);
     }
 
     // Interviews collection rules
     match /interviews/{interviewId} {
-      allow read, write: if isValidId(interviewId);
+      allow get: if isValidId(interviewId);
+      allow list: if true;
+      allow write: if isValidId(interviewId);
     }
   }
 }

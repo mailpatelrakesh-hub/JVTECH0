@@ -460,7 +460,7 @@ export default function InterviewRegistry({
        throw new Error("Gemini API Key is empty or invalid. Please login as admin, go to Admin Panel -> Settings -> and save a valid Gemini API Key.");
     }
 
-    const modelsToTry = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-2.5-flash", "gemini-1.5-flash-8b", "gemini-1.5-pro"];
+    const modelsToTry = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.5-pro"];
     let lastError: any = null;
 
     for (const modelName of modelsToTry) {
