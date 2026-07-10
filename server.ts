@@ -15,17 +15,15 @@ async function startServer() {
   app.use(express.json({ limit: "25mb" }));
   app.use(express.urlencoded({ limit: "25mb", extended: true }));
 
-  // Initialize Gemini Client Lazily/Safely
-  let aiClient: GoogleGenAI | null = null;
-  function getGeminiClient() {
-    if (!aiClient) {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) {
-        throw new Error("GEMINI_API_KEY is not defined. Please configure it in your Secrets/Environment.");
-      }
-      aiClient = new GoogleGenAI({ apiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
+  // Initialize Gemini Client Lazily/Safely or using Client-passed Key
+  function getGeminiClient(customApiKey?: string) {
+    const apiKey = (customApiKey && customApiKey.trim() !== "" && customApiKey !== "undefined" && customApiKey !== "null")
+      ? customApiKey.trim()
+      : process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY is not defined. Please configure it in your Secrets/Environment or save a valid Gemini API Key in Admin Panel -> Settings.");
     }
-    return aiClient;
+    return new GoogleGenAI({ apiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
   }
 
   // API endpoints
@@ -37,11 +35,12 @@ async function startServer() {
   app.post("/api/gemini/extract", async (req, res) => {
     try {
       const { base64, mimeType } = req.body;
+      const customApiKey = req.headers["x-gemini-api-key"] as string;
       if (!base64 || !mimeType) {
         return res.status(400).json({ error: "Missing base64 data or mimeType in request body." });
       }
 
-      const ai = getGeminiClient();
+      const ai = getGeminiClient(customApiKey);
 
       // Clean prefix if present (e.g. "data:image/png;base64,")
       let cleanBase64 = base64;
@@ -182,11 +181,12 @@ async function startServer() {
   app.post("/api/gemini/extract-demand", async (req, res) => {
     try {
       const { base64, mimeType } = req.body;
+      const customApiKey = req.headers["x-gemini-api-key"] as string;
       if (!base64 || !mimeType) {
         return res.status(400).json({ error: "Missing base64 data or mimeType in request body." });
       }
 
-      const ai = getGeminiClient();
+      const ai = getGeminiClient(customApiKey);
 
       // Clean prefix if present (e.g. "data:image/png;base64,")
       let cleanBase64 = base64;

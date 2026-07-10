@@ -543,7 +543,10 @@ export default function InterviewRegistry({
         try {
           const response = await fetch('/api/gemini/extract-demand', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'X-Gemini-API-Key': systemSettings?.geminiApiKey || ''
+            },
             body: JSON.stringify({ base64: base64Data, mimeType: file.type })
           });
 

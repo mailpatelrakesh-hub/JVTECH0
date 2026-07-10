@@ -401,7 +401,10 @@ export default function CandidateModal({
       try {
         const response = await fetch('/api/gemini/extract', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Gemini-API-Key': systemSettings?.geminiApiKey || ''
+          },
           body: JSON.stringify({ base64: base64Data, mimeType })
         });
 
